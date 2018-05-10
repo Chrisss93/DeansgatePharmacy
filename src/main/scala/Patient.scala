@@ -12,10 +12,9 @@ case class Patient(rows: Vector[String], header: Vector[String]) {
   val fillDate: DateTime = DateTimeFormat.forPattern("dd-MMMM-YY").parseDateTime( rows( header.indexOf("FillDate") ) )
 
   def shouldCall(callback: Int): Boolean = fillDate + callback.days < DateTime.now()
-  def prettyPrint(verbose: Boolean = true): String = {
-//    s"$name ($rx) is waiting for a callback at $number on their $prescription compound."
-    if (verbose) s"\t$name ($rx) at $number for their $prescription compound."
-    else s"\tPatient $rx"
+  def prettyPrint(verbose: Boolean = false): String = {
+    if (verbose) "\t" + raw"""$name (#$rx) at $number for their "$prescription" compound."""
+    else s"\tPatient #$rx at $number"
   }
   override def toString() = s"$rx filled $fillDate"
 }

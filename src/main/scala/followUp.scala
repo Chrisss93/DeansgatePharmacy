@@ -1,4 +1,5 @@
-import java.io.File
+import java.nio.file.Paths
+import java.io.{File, PrintWriter}
 import scala.annotation.tailrec
 
 import scala.util.Try
@@ -9,12 +10,6 @@ object followUp {
   private val env: Map[String, Option[String]] = List("kroll_user", "kroll_pwd", "mailbot_user", "mailbot_pwd").
     map((x) => x -> sys.env.get(x)).
     toMap
-  val formatter = DateTimeFormat.forPattern("dd-MMMM-YY")
-  val file = {
-    val dir = new File(System.getProperty("user.home"), "Documents")
-    new File(dir.getPath(), formatter.print(DateTime.now()) + ".csv")
-  }
-  file.deleteOnExit()
 
   def check(args: Array[String]): Unit = {
     if (!env.values.forall(_.isDefined)) {
@@ -22,18 +17,65 @@ object followUp {
         env.filter(_._2.isEmpty).keySet.mkString(", ")
       )
     }
-    if (args.length != 2 || Try(args(0).toInt).isFailure || !args(1).contains("@") || args(1).startsWith("@") ||
-      args(1).endsWith("@")) {
+    val check1 = Try(args(0).toInt).isSuccess
+    val check2 = args(1).contains("@") && !args(1).startsWith("@") && !args(1).endsWith("@")
+    val check3 = Paths.get(args(2)).toFile isDirectory()
+    val check4 = args(3).endsWith(".exe") & (Paths.get(args(3)).toFile() exists())
+
+    if (args.length == 4 && check1 && check2 && check3 && !check4) {
+      println("All arguments are valid\n")
+    } else {
         throw new Exception("Improper arguments. The first argument must be the number of days until call-back. " +
-          "The second argument must be a proper email address to send the call-back alerts to.")
+          "The second argument must be a proper email address to send the call-back alerts to. The third argument " +
+          "must the Kroll Windows executable file location. The fourth argument must be an existing directory to " +
+          "store temporary report files.")
     }
   }
-  def runReport(file: File, env: Map[String, Option[String]]): Unit = {
-//    TODO Write AutoIt script using the 3 variables given
-    val p = new java.io.PrintWriter(file)
-    val v = scala.io.Source.fromFile("/home/chris/Desktop/test.csv").getLines().toVector.mkString("\n")
-    p.write(v)
-    p.close
+  def runReport(exe: String, file: File, env: Map[String, Option[String]]): Unit = {
+    import sys.process._
+
+    val autoit = List(
+      raw"""Run("$exe")""",
+      """WinWaitActive("[TITLE:Login; CLASS:TLoginForm]")""",
+      raw"""Send("${env("kroll_user").get}{TAB}")""",
+      raw"""Send("${env("kroll_pwd").get}{ENTER}")""",
+      """local $update = WinWaitActive("[TITLE:Program Update Pending; CLASS:TButtonForm]", "", 5)""",
+      "If $update <> 0 Then",
+      """ControlClick($update, "", "[CLASS:TBitBtn; INSTANCE:1]")""",
+      "EndIf",
+      """Send("!r")""",
+      """Send("rd")""",
+      """Send("^r")""",
+      """Send("y")""",
+      """Send("^a")""",
+      """Send("last week")""",
+      """Send("+{TAB}")""",
+      """Send("^u")""",
+      """Send("{F2}")""",
+      """Send("^d")""",
+      """Send("compounds{ENTER 2}")""",
+      """Send("^o")""",
+      """Send("{TAB 5}{SPACE}")""",
+      """Send("{TAB 3}{DOWN 2}")""",
+      """Send("^c")""",
+      """WinWaitActive("Save CSV File")""",
+      raw"""Send("${file.getAbsolutePath()}{ENTER}")""",
+      "Sleep(500)",
+      """Send("{ESC}")""",
+      "Sleep(500)",
+      """Send("!{F4}")""",
+      "Sleep(500)",
+      """Send("y")""",
+      """Send("n")"""
+    )
+
+    val temp = new File("autoit_script.au3")
+    temp.deleteOnExit()
+    val p  = new PrintWriter(temp)
+    p.write(autoit.mkString("\n"))
+    p.close()
+
+    s"AutoIt3.exe ${temp.getAbsolutePath()}" !
   }
 
   @tailrec
@@ -69,9 +111,12 @@ object followUp {
   }
 
   def main(args: Array[String]): Unit = {
+    args.foreach(println)
     check(args)
-    runReport(file, env)
-    val patients = callers(file, args(0).toInt)
+    val temp = new File(args(3), DateTimeFormat.forPattern("dd-MMMM-YY").print(DateTime.now()) + ".csv")
+    temp.deleteOnExit()
+    runReport(args(2), temp, env)
+    val patients = callers(temp, args(0).toInt)
     sendAlert(patients, args)
   }
 }
