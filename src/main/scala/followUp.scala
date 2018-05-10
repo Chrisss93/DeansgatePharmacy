@@ -19,8 +19,9 @@ object followUp {
     }
     val check1 = Try(args(0).toInt).isSuccess
     val check2 = args(1).contains("@") && !args(1).startsWith("@") && !args(1).endsWith("@")
-    val check3 = Paths.get(args(2)).toFile isDirectory()
-    val check4 = args(3).endsWith(".exe") & (Paths.get(args(3)).toFile() exists())
+    val check3 = args(2).endsWith(".exe") & (Paths.get(args(2)).toFile() exists())
+    val check4 = Paths.get(args(3)).toFile isDirectory()
+
 
     if (args.length == 4 && check1 && check2 && check3 && !check4) {
       println("All arguments are valid\n")
