@@ -25,7 +25,7 @@ package object mail {
   class SecureMail(mail: Email) {
     def authenticate(credentials: Map[String, Option[String]]): Email = {
       if (!credentials.contains("mailbot_user") || !credentials.contains("mailbot_pwd")) {
-        throw new Exception("SecureMail missing authentication credentials.")
+        throw new Exception("SecureMail missing user/password credentials.")
       }
       mail.setHostName("smtp.gmail.com")
       mail.setSmtpPort(465)
